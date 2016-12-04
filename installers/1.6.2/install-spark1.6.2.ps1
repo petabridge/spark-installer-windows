@@ -5,8 +5,7 @@
 Param(
     [string]$hadoopInstallFolder = "C:\Hadoop",
     [string]$sparkInstallFolder = "C:\Spark",
-    [string]$mobiusInstallFolder = "C:\Mobius",
-    [string]$apacheArchiveServer = "archive.apache.org"
+    [string]$mobiusInstallFolder = "C:\Mobius"
 )
 
 $hadoopVersion = "2.6.0"
@@ -113,9 +112,9 @@ function InstallJdk
     Write-Host "Executing choco install jdk8 -y `n"
     choco install jdk8 -y | Out-Host
     ReloadPath
-    $rValue = FindCommandOnPath("javac")
+    $rValue =  FindCommandOnPath("javac")
     Write-Host "Installation finished. Installed JDK to ($rValue)"
-    return $rValue
+    return [IO.Path]::GetDirectoryName($rValue)
 }
 
 # Downloads internal binaries needed for things like un-TARing files
@@ -392,3 +391,35 @@ if($hadoopHome -eq $null -or $hadoopHome -eq ''){
     Write-Host "Please ensure that they are Hadoop version $hadoopVersion and that this guide has been followed for Windows."
     Write-Host "https://wiki.apache.org/hadoop/WindowsProblems .`n"
 }
+
+Write-Host "`n`n------------------------ SPARK PREREQUISITES ------------------------`n`n"
+Write-Host "Checking for Spark installation..."
+if($sparkHome -eq $null -or $sparkHome -eq ''){
+    Write-Host "$sparkHomeEnvironmentVariableName environment not detected on this system.`n"
+    Write-Host "Checking for tools...`n"
+    DownloadInternalTools
+
+    # Create high-level Spark folder
+    if(!(Test-Path $sparkInstallFolder)){
+        Write-Host "$sparkInstallFolder does not exist. Creating..."
+        New-Item -ItemType Directory -Force -Path $sparkInstallFolder | Out-Null
+    } else{
+        Write-Host "$sparkInstallFolder already exists."
+    }
+
+    # Download the Spark distribution from Apache    
+    $url = "http://archive.apache.org/dist/spark/spark-1.6.2/spark-1.6.2-bin-without-hadoop.tgz"
+    $output = [IO.Path]::Combine($sparkInstallFolder, "spark-$sparkVersion-bin-hadoop$hadoopVersion.tgz")
+    $targetDir = [IO.Path]::Combine($sparkInstallFolder)
+    Write-Host "Downloading official Spark $sparkVersion solution from $url to $output"
+    Download-File $url $output
+    Untar-File $output $targetDir
+    
+    $sparkHome = [IO.Path]::Combine($sparkInstallFolder, "spark-1.6.2-bin-without-hadoop")
+    [Environment]::SetEnvironmentVariable($sparkHomeVariableName, $sparkHome, 'machine')
+    Write-Host "Set ($sparkHomeVariableName) to ($sparkHome)"
+
+}else{
+    Write-Host "Found Spark binaries at $sparkHome ."
+}
+
