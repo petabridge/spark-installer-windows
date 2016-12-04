@@ -39,6 +39,9 @@ function ReloadPath
 }
 ReloadPath
 
+# Load IO.Compression.FileSystem for unzip capabilities
+Add-Type -assembly "system.io.compression.filesystem"
+
 # Create tools directory
 # Going to need it for our un-taring utility primarily
 $scriptDir = (Get-Item -Path ".\" -Verbose).FullName
@@ -237,7 +240,7 @@ function Download-File($url, $output)
             $howlong = "$seconds seconds"
         }
 
-        Write-Output "[downloadtools.Download-File] Download completed. Time taken: $howlong"
+        Write-Output "[Download-File] Download completed. Time taken: $howlong"
     
         if ( !(test-path $output) -or (Get-Item $output).Length -eq 0)
         {
@@ -249,49 +252,6 @@ function Download-File($url, $output)
         Unregister-Event -SourceIdentifier Web.DownloadFileCompleted
         Unregister-Event -SourceIdentifier Web.DownloadProgressChanged
     }        
-}
-
-# This method was developed by the Microsoft team working on the Mobius project.
-# See the original source here: https://github.com/Microsoft/Mobius/blob/6e2b820524c8184b19d2650094480c7c3ae0229c/build/localmode/downloadtools.ps1
-function Unzip-File($zipFile, $targetDir)
-{
-    if (!(test-path $zipFile))
-    {
-        Write-Output "[Unzip-File] WARNING!!! $zipFile does not exist. Abort."
-        return
-    }
-
-    if (!(test-path $targetDir))
-    {
-        Write-Output "[Unzip-File] $targetDir does not exist. Creating ..."
-        New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
-        Write-Output "[Unzip-File] Created $targetDir."
-    }
-
-    $start_time = Get-Date
-    Write-Output "[downloadtools.Unzip-File] Extracting $zipFile to $targetDir ..."
-    $entries = [IO.Compression.ZipFile]::OpenRead($zipFile).Entries
-    $entries | 
-        %{
-            #compose some target path
-            $targetpath = join-path "$targetDir" $_.FullName
-            #extract the file (and overwrite)
-            [IO.Compression.ZipFileExtensions]::ExtractToFile($_, $targetpath, $true)
-        }
-    
-    $duration = $(Get-Date).Subtract($start_time)
-    if ($duration.Seconds -lt 2)
-    {
-        $mills = $duration.MilliSeconds
-        $howlong = "$mills milliseconds"
-    }
-    else
-    {
-        $seconds = $duration.Seconds
-        $howlong = "$seconds seconds"
-    }
-
-    Write-Output "[Unzip-File] Extraction completed. Time taken: $howlong"
 }
 
 
@@ -432,3 +392,36 @@ if($sparkHome -eq $null -or $sparkHome -eq ''){
     Write-Host "Found Spark binaries at $sparkHome ."
 }
 
+Write-Host "`n`n------------------------ MOBIUS PREREQUISITES ------------------------`n`n"
+Write-Host "Checking for Mobius (Spark CLR) installation..."
+if($mobiusHome -eq $null -or $mobiusHome -eq ''){
+    Write-Host "$mobiusHomeEnvironmentVariableName environment not detected on this system.`n"
+    Write-Host "Installing..."
+
+    # Create high-level Mobius folder
+    if(!(Test-Path $mobiusInstallFolder)){
+        Write-Host "$mobiusInstallFolder does not exist. Creating..."
+        New-Item -ItemType Directory -Force -Path $mobiusInstallFolder | Out-Null
+    } else{
+        Write-Host "$mobiusInstallFolder already exists."
+    }
+
+    # Download Mobius 1.6.2 release from Github
+    $url = "https://github.com/Microsoft/Mobius/releases/download/v1.6.200/spark-clr_2.10-1.6.200.zip"
+    $output = [IO.Path]::Combine($mobiusInstallFolder, "spark-clr_2.10-1.6.200.zip")
+    Write-Host "Downloading official Mobius $sparkVersion distribution from Github..."
+    Download-File $url $output
+    $targetDir = [IO.Path]::Combine($mobiusInstallFolder, "spark-clr-$sparkVersion")
+    Expand-Archive $output -DestinationPath $targetDir -Force
+
+    $mobiusHome = [IO.Path]::Combine($targetDir, "runtime") # set the runtime folder as the home for Mobius
+    [Environment]::SetEnvironmentVariable($mobiusHomeVariableName, $mobiuskHome, 'machine')
+    Write-Host "Set ($mobiusHomeVariableName) to ($mobiusHome)"
+
+} else{
+    Write-Host "Found Mobius binaries at $mobiusHome.`n"
+}
+
+Write-Host "Installation complete.`n"
+Write-Host "Warning: RELOAD this shell or launch a new one so the new environment variables get picked up.`n"
+Write-Host "You should now be able to execute any Spark command by executing the files in $sparkHome\bin or $mobiusHome\bin.`n"
