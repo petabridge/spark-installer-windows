@@ -104,19 +104,6 @@ function GetOrInstallChoco
 }
 
 
-# Downloads Chocolatey, if necessary, and uses it to install JDK 8.0.112
-function InstallJdk
-{
-    GetOrInstallChoco
-
-    Write-Host "Executing choco install jdk8 -y `n"
-    choco install jdk8 -y | Out-Host
-    ReloadPath
-    $rValue =  FindCommandOnPath("javac")
-    Write-Host "Installation finished. Installed JDK to ($rValue)"
-    return [IO.Path]::GetDirectoryName($rValue)
-}
-
 # Downloads internal binaries needed for things like un-TARing files
 # and allowing Hadoop to work
 function DownloadInternalTools(){
@@ -312,11 +299,30 @@ function Unzip-File($zipFile, $targetDir)
 
 Write-Host "`n`n------------------------ JDK PREREQUISITES ------------------------`n`n"
 Write-Host "Checking for JDK 8.0 installation..."
+
+
+function GetJdkHomeDirectory([string]$javacExeLocation){
+    return [IO.Directory]::GetParent(([IO.Path]::GetDirectoryName($javacExeLocation)))
+}
+
+# Downloads Chocolatey, if necessary, and uses it to install JDK 8.0.112
+function InstallJdk
+{
+    GetOrInstallChoco
+
+    Write-Host "Executing choco install jdk8 -y `n"
+    choco install jdk8 -y | Out-Host
+    ReloadPath
+    $rValue =  FindCommandOnPath("javac")
+    Write-Host "Installation finished. Installed JDK to ($rValue)"
+    return GetJdkHomeDirectory($rValue)
+}
+
 if($javaHome -eq $null -or $javaHome -eq ''){
     Write-Host "$javaHomeVariableName environment not detected on this system."
     Write-Host "Scanning file system for JDK8 installation."
 
-    $javaHome = FindCommandOnPath("javac")
+    $javaHome = GetJdkHomeDirectory(FindCommandOnPath("javac"))
 
     
     if($javaHome -eq $null -or $javaHome -eq '' -or $javaHome -contains "Could not find files.`n"){
@@ -362,6 +368,7 @@ if($hadoopHome -eq $null -or $hadoopHome -eq ''){
         Write-Host "$hadoopInstallFolder already exists."
     }
 
+    <#
     # Download the Hadoop distribution from Apache    
     $url = "http://apache.claz.org/hadoop/core/hadoop-2.6.5/hadoop-2.6.5.tar.gz"
     $output = [IO.Path]::Combine($hadoopInstallFolder, "hadoop-2.6.5.tar.gz")
@@ -369,8 +376,10 @@ if($hadoopHome -eq $null -or $hadoopHome -eq ''){
     Write-Host "Downloading official Hadoop 2.6* solution from $url to $output"
     Download-File $url $output
     Untar-File $output $targetDir
+    #>
     
-    $hadoopHome = [IO.Path]::Combine($targetDir, "hadoop-2.6.5")
+    $hadoopHome = [IO.Path]::Combine($hadoopInstallFolder, "hadoop-2.6.5")
+    New-Item -ItemType Directory -Force -Path $hadoopHome | Out-Null
     [Environment]::SetEnvironmentVariable($hadoopHomeVariableName, $hadoopHome, 'machine')
     Write-Host "Set ($hadoopHomeVariableName) to ($hadoopHome)"
 
@@ -408,14 +417,14 @@ if($sparkHome -eq $null -or $sparkHome -eq ''){
     }
 
     # Download the Spark distribution from Apache    
-    $url = "http://archive.apache.org/dist/spark/spark-1.6.2/spark-1.6.2-bin-without-hadoop.tgz"
+    $url = "http://archive.apache.org/dist/spark/spark-1.6.2/spark-1.6.2-bin-hadoop2.6.tgz"
     $output = [IO.Path]::Combine($sparkInstallFolder, "spark-$sparkVersion-bin-hadoop$hadoopVersion.tgz")
-    $targetDir = [IO.Path]::Combine($sparkInstallFolder)
+    $targetDir = $sparkInstallFolder
     Write-Host "Downloading official Spark $sparkVersion solution from $url to $output"
     Download-File $url $output
     Untar-File $output $targetDir
     
-    $sparkHome = [IO.Path]::Combine($sparkInstallFolder, "spark-1.6.2-bin-without-hadoop")
+    $sparkHome = [IO.Path]::Combine($sparkInstallFolder, "spark-$sparkVersion-bin-hadoop$hadoopVersion")
     [Environment]::SetEnvironmentVariable($sparkHomeVariableName, $sparkHome, 'machine')
     Write-Host "Set ($sparkHomeVariableName) to ($sparkHome)"
 
