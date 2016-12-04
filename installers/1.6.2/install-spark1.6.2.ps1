@@ -42,8 +42,9 @@ ReloadPath
 
 # Create tools directory
 # Going to need it for our un-taring utility primarily
-$scriptDir = Get-ScriptDirectory
-$toolsDir = "$scriptDir\tools"
+$scriptDir = (Get-Item -Path ".\" -Verbose).FullName
+$toolsDir = [IO.Path]::Combine($scriptDir, "tools")
+$tarToolExe = [IO.Path]::Combine($toolsDir, "TarTool.exe")
 
 
 # Time to check environment variables. If there's a previous installation of Spark, Mobius, JDK, or Hadoop we should
@@ -117,6 +118,72 @@ function InstallJdk
     return $rValue
 }
 
+# Downloads internal binaries needed for things like un-TARing files
+# and allowing Hadoop to work
+function DownloadInternalTools(){
+     # create the /tools directory off the PWD
+    if(!(Test-Path $toolsDir)){
+        Write-Host "Creating $toolsDir"
+        New-Item -ItemType Directory -Force -Path $toolsDir | Out-Null
+    }
+    else{
+        Write-Host "$toolsDir already exists."
+    }
+
+     # TarTool
+    $tarToolExe = "$toolsDir\TarTool.exe"
+    if (!(Test-Path $tarToolExe))
+    {
+        Write-Host "Downloading TarTool.exe for untarring Spark / Hadoop binaries"
+        $url = "http://download-codeplex.sec.s-msft.com/Download/Release?ProjectName=tartool&DownloadId=79064&FileTime=128946542158770000&Build=21031"
+        $output="$toolsDir\TarTool.zip"
+        Download-File $url $output
+        Unzip-File $output $toolsDir
+    }
+    else
+    {
+        Write-Output "$tarToolExe exists already. No download and extraction needed"
+    }
+}
+
+# This method was developed by the Microsoft team working on the Mobius project.
+# See the original source here: https://github.com/Microsoft/Mobius/blob/6e2b820524c8184b19d2650094480c7c3ae0229c/build/localmode/downloadtools.ps1
+function Untar-File($tarFile, $targetDir)
+{
+    Write-Host "Using $tarToolExe for .tar.gz extraction.`n"
+    if (!(test-path $tarFile))
+    {
+        Write-Output "[Untar-File] WARNING!!! $tarFile does not exist. Abort."
+        return
+    }
+
+    if (!(test-path $targetDir))
+    {
+        Write-Output "[Untar-File] $targetDir does not exist. Creating ..."
+        New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
+        Write-Output "[Untar-File] Created $targetDir."
+    }
+
+    $start_time = Get-Date
+
+    Write-Output "[Untar-File] Extracting $tarFile to $targetDir ..."
+    Invoke-Expression "& `"$tarToolExe`" $tarFile $targetDir"
+    
+    $duration = $(Get-Date).Subtract($start_time)
+    if ($duration.Seconds -lt 2)
+    {
+        $mills = $duration.MilliSeconds
+        $howlong = "$mills milliseconds"
+    }
+    else
+    {
+        $seconds = $duration.Seconds
+        $howlong = "$seconds seconds"
+    }
+
+    Write-Output "[Untar-File] Extraction completed. Time taken: $howlong"
+}
+
 # This method was developed by the Microsoft team working on the Mobius project.
 # See the original source here: https://github.com/Microsoft/Mobius/blob/6e2b820524c8184b19d2650094480c7c3ae0229c/build/localmode/downloadtools.ps1
 function Download-File($url, $output)
@@ -140,52 +207,62 @@ function Download-File($url, $output)
     $wc = New-Object System.Net.WebClient
     Write-Output "[Download-File] Start downloading $url to $output ..."
     $Global:downloadComplete = $false
+
+    
     Register-ObjectEvent -InputObject $wc -EventName DownloadFileCompleted `
         -SourceIdentifier Web.DownloadFileCompleted -Action {
         $Global:downloadComplete = $True
     }
+
+    
     Register-ObjectEvent -InputObject $wc  -EventName DownloadProgressChanged `
         -SourceIdentifier Web.DownloadProgressChanged -Action {
         $Global:Data = $event
     }
-    
-    $tmpOutput = $output + ".tmp.download"
-    if (test-path $tmpOutput) {
-        Remove-Item $tmpOutput
-    }
-    
-    $wc.DownloadFileAsync($url, $tmpOutput)
-    While (!($Global:downloadComplete)) {
-        $percent = $Global:Data.SourceArgs.ProgressPercentage
-        $totalBytes = $Global:Data.SourceArgs.TotalBytesToReceive
-        $receivedBytes = $Global:Data.SourceArgs.BytesReceived
-        If ($percent -ne $null) {
-            Write-Progress -Activity ("Downloading file to {0} from {1}" -f $output,$url) -Status ("{0} bytes \ {1} bytes" -f $receivedBytes,$totalBytes)  -PercentComplete $percent
-        }
-    }
-    
-    Rename-Item $tmpOutput -NewName $output
-    Write-Progress -Activity ("Downloading file to {0} from {1}" -f $output, $url) -Status ("{0} bytes \ {1} bytes" -f $receivedBytes,$totalBytes)  -Completed
-    Unregister-Event -SourceIdentifier Web.DownloadFileCompleted
-    Unregister-Event -SourceIdentifier Web.DownloadProgressChanged
-    $duration = $(Get-Date).Subtract($start_time)
-    if ($duration.Seconds -lt 2)
-    {
-        $mills = $duration.MilliSeconds
-        $howlong = "$mills milliseconds"
-    }
-    else
-    {
-        $seconds = $duration.Seconds
-        $howlong = "$seconds seconds"
-    }
 
-    Write-Output "[downloadtools.Download-File] Download completed. Time taken: $howlong"
+    try{
+        $tmpOutput = $output + ".tmp.download"
+        if (test-path $tmpOutput) {
+            Remove-Item $tmpOutput
+        }
     
-    if ( !(test-path $output) -or (Get-Item $output).Length -eq 0)
-    {
-        throw [System.IO.FileNotFoundException] "Failed to download file $output from $url"
+        $wc.DownloadFileAsync($url, $tmpOutput)
+        While (!($Global:downloadComplete)) {
+            $percent = $Global:Data.SourceArgs.ProgressPercentage
+            $totalBytes = $Global:Data.SourceArgs.TotalBytesToReceive
+            $receivedBytes = $Global:Data.SourceArgs.BytesReceived
+            If ($percent -ne $null) {
+                Write-Progress -Activity ("Downloading file to {0} from {1}" -f $output,$url) -Status ("{0} bytes \ {1} bytes" -f $receivedBytes,$totalBytes)  -PercentComplete $percent
+            }
+        }
+    
+        Rename-Item $tmpOutput -NewName $output
+        Write-Progress -Activity ("Downloading file to {0} from {1}" -f $output, $url) -Status ("{0} bytes \ {1} bytes" -f $receivedBytes,$totalBytes)  -Completed
+        
+        $duration = $(Get-Date).Subtract($start_time)
+        if ($duration.Seconds -lt 2)
+        {
+            $mills = $duration.MilliSeconds
+            $howlong = "$mills milliseconds"
+        }
+        else
+        {
+            $seconds = $duration.Seconds
+            $howlong = "$seconds seconds"
+        }
+
+        Write-Output "[downloadtools.Download-File] Download completed. Time taken: $howlong"
+    
+        if ( !(test-path $output) -or (Get-Item $output).Length -eq 0)
+        {
+            throw [System.IO.FileNotFoundException] "Failed to download file $output from $url"
+        }    
     }
+    finally{
+        # need to cleanup event handlers no matter what
+        Unregister-Event -SourceIdentifier Web.DownloadFileCompleted
+        Unregister-Event -SourceIdentifier Web.DownloadProgressChanged
+    }        
 }
 
 # This method was developed by the Microsoft team working on the Mobius project.
@@ -194,15 +271,15 @@ function Unzip-File($zipFile, $targetDir)
 {
     if (!(test-path $zipFile))
     {
-        Write-Output "[downloadtools.Unzip-File] WARNING!!! $zipFile does not exist. Abort."
+        Write-Output "[Unzip-File] WARNING!!! $zipFile does not exist. Abort."
         return
     }
 
     if (!(test-path $targetDir))
     {
-        Write-Output "[downloadtools.Unzip-File] $targetDir does not exist. Creating ..."
+        Write-Output "[Unzip-File] $targetDir does not exist. Creating ..."
         New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
-        Write-Output "[downloadtools.Unzip-File] Created $targetDir."
+        Write-Output "[Unzip-File] Created $targetDir."
     }
 
     $start_time = Get-Date
@@ -228,7 +305,7 @@ function Unzip-File($zipFile, $targetDir)
         $howlong = "$seconds seconds"
     }
 
-    Write-Output "[downloadtools.Unzip-File] Extraction completed. Time taken: $howlong"
+    Write-Output "[Unzip-File] Extraction completed. Time taken: $howlong"
 }
 
 
@@ -269,8 +346,49 @@ else{
     Exit
 }
 
+
+
 Write-Host "`n`n------------------------ HADOOP PREREQUISITES ------------------------`n`n"
 Write-Host "Checking for Hadoop installation..."
 if($hadoopHome -eq $null -or $hadoopHome -eq ''){
-    Write-Host "$hadoopHomeVariableName environment not detected on this system."
+    Write-Host "$hadoopHomeVariableName environment not detected on this system.`n"
+    Write-Host "Checking for tools...`n"
+    DownloadInternalTools
+
+    # Create high-level Hadoop folder
+    if(!(Test-Path $hadoopInstallFolder)){
+        Write-Host "$hadoopInstallFolder does not exist. Creating..."
+        New-Item -ItemType Directory -Force -Path $hadoopInstallFolder | Out-Null
+    } else{
+        Write-Host "$hadoopInstallFolder already exists."
+    }
+
+    # Download the Hadoop distribution from Apache    
+    $url = "http://apache.claz.org/hadoop/core/hadoop-2.6.5/hadoop-2.6.5.tar.gz"
+    $output = [IO.Path]::Combine($hadoopInstallFolder, "hadoop-2.6.5.tar.gz")
+    $targetDir = [IO.Path]::Combine($hadoopInstallFolder)
+    Write-Host "Downloading official Hadoop 2.6* solution from $url to $output"
+    Download-File $url $output
+    Untar-File $output $targetDir
+    
+    $hadoopHome = [IO.Path]::Combine($targetDir, "hadoop-2.6.5")
+    [Environment]::SetEnvironmentVariable($hadoopHomeVariableName, $hadoopHome, 'machine')
+    Write-Host "Set ($hadoopHomeVariableName) to ($hadoopHome)"
+
+    $winutilsExe = [IO.Path]::Combine($hadoopHome, "bin", "winutils.exe")
+    if (!(Test-Path $winutilsExe))
+    {
+        Write-Host "Downloading Hadoop winutils.exe (needed for Windows interop)"
+        $url = "https://github.com/MobiusForSpark/winutils/blob/master/hadoop-2.6.0/bin/winutils.exe?raw=true"
+        $output=$winutilsExe
+        Download-File $url $output
+    }
+    else{
+        Write-Host "Found $winutilsExe. Skipping download.`n"
+    }
+
+}else{
+    Write-Host "Found Hadoop binaries at $hadoopHome ."
+    Write-Host "Please ensure that they are Hadoop version $hadoopVersion and that this guide has been followed for Windows."
+    Write-Host "https://wiki.apache.org/hadoop/WindowsProblems .`n"
 }
