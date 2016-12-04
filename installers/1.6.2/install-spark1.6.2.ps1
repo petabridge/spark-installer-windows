@@ -415,7 +415,7 @@ if($mobiusHome -eq $null -or $mobiusHome -eq ''){
     Expand-Archive $output -DestinationPath $targetDir -Force
 
     $mobiusHome = [IO.Path]::Combine($targetDir, "runtime") # set the runtime folder as the home for Mobius
-    [Environment]::SetEnvironmentVariable($mobiusHomeVariableName, $mobiuskHome, 'machine')
+    [Environment]::SetEnvironmentVariable($mobiusHomeVariableName, $mobiusHome, 'machine')
     Write-Host "Set ($mobiusHomeVariableName) to ($mobiusHome)"
 
 } else{
