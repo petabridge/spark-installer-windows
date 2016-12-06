@@ -5,11 +5,10 @@
 Param(
     [string]$hadoopInstallFolder = "C:\Hadoop",
     [string]$sparkInstallFolder = "C:\Spark",
-    [string]$mobiusInstallFolder = "C:\Mobius",
-    [string]$apacheArchiveServer = "archive.apache.org"
+    [string]$mobiusInstallFolder = "C:\Mobius"
 )
 
-$hadoopVersion = "2.6.0"
+$hadoopVersion = "2.6"
 $sparkVersion = "1.6.2"
 $versionRegex = [regex]"\b(?:(\d+)\.)?(?:(\d+)\.)?(\*|\d+)\b" # Regex for version numbers
 
@@ -39,6 +38,9 @@ function ReloadPath
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 }
 ReloadPath
+
+# Load IO.Compression.FileSystem for unzip capabilities
+Add-Type -assembly "system.io.compression.filesystem"
 
 # Create tools directory
 # Going to need it for our un-taring utility primarily
@@ -104,19 +106,6 @@ function GetOrInstallChoco
     return $true
 }
 
-
-# Downloads Chocolatey, if necessary, and uses it to install JDK 8.0.112
-function InstallJdk
-{
-    GetOrInstallChoco
-
-    Write-Host "Executing choco install jdk8 -y `n"
-    choco install jdk8 -y | Out-Host
-    ReloadPath
-    $rValue = FindCommandOnPath("javac")
-    Write-Host "Installation finished. Installed JDK to ($rValue)"
-    return $rValue
-}
 
 # Downloads internal binaries needed for things like un-TARing files
 # and allowing Hadoop to work
@@ -265,59 +254,35 @@ function Download-File($url, $output)
     }        
 }
 
-# This method was developed by the Microsoft team working on the Mobius project.
-# See the original source here: https://github.com/Microsoft/Mobius/blob/6e2b820524c8184b19d2650094480c7c3ae0229c/build/localmode/downloadtools.ps1
-function Unzip-File($zipFile, $targetDir)
-{
-    if (!(test-path $zipFile))
-    {
-        Write-Output "[Unzip-File] WARNING!!! $zipFile does not exist. Abort."
-        return
-    }
-
-    if (!(test-path $targetDir))
-    {
-        Write-Output "[Unzip-File] $targetDir does not exist. Creating ..."
-        New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
-        Write-Output "[Unzip-File] Created $targetDir."
-    }
-
-    $start_time = Get-Date
-    Write-Output "[downloadtools.Unzip-File] Extracting $zipFile to $targetDir ..."
-    $entries = [IO.Compression.ZipFile]::OpenRead($zipFile).Entries
-    $entries | 
-        %{
-            #compose some target path
-            $targetpath = join-path "$targetDir" $_.FullName
-            #extract the file (and overwrite)
-            [IO.Compression.ZipFileExtensions]::ExtractToFile($_, $targetpath, $true)
-        }
-    
-    $duration = $(Get-Date).Subtract($start_time)
-    if ($duration.Seconds -lt 2)
-    {
-        $mills = $duration.MilliSeconds
-        $howlong = "$mills milliseconds"
-    }
-    else
-    {
-        $seconds = $duration.Seconds
-        $howlong = "$seconds seconds"
-    }
-
-    Write-Output "[Unzip-File] Extraction completed. Time taken: $howlong"
-}
-
 
 
 
 Write-Host "`n`n------------------------ JDK PREREQUISITES ------------------------`n`n"
 Write-Host "Checking for JDK 8.0 installation..."
+
+
+function GetJdkHomeDirectory([string]$javacExeLocation){
+    return [IO.Directory]::GetParent(([IO.Path]::GetDirectoryName($javacExeLocation)))
+}
+
+# Downloads Chocolatey, if necessary, and uses it to install JDK 8.0.112
+function InstallJdk
+{
+    GetOrInstallChoco
+
+    Write-Host "Executing choco install jdk8 -y `n"
+    choco install jdk8 -y | Out-Host
+    ReloadPath
+    $rValue =  FindCommandOnPath("javac")
+    Write-Host "Installation finished. Installed JDK to ($rValue)"
+    return GetJdkHomeDirectory($rValue)
+}
+
 if($javaHome -eq $null -or $javaHome -eq ''){
     Write-Host "$javaHomeVariableName environment not detected on this system."
     Write-Host "Scanning file system for JDK8 installation."
 
-    $javaHome = FindCommandOnPath("javac")
+    $javaHome = GetJdkHomeDirectory(FindCommandOnPath("javac"))
 
     
     if($javaHome -eq $null -or $javaHome -eq '' -or $javaHome -contains "Could not find files.`n"){
@@ -363,6 +328,7 @@ if($hadoopHome -eq $null -or $hadoopHome -eq ''){
         Write-Host "$hadoopInstallFolder already exists."
     }
 
+    <#
     # Download the Hadoop distribution from Apache    
     $url = "http://apache.claz.org/hadoop/core/hadoop-2.6.5/hadoop-2.6.5.tar.gz"
     $output = [IO.Path]::Combine($hadoopInstallFolder, "hadoop-2.6.5.tar.gz")
@@ -370,8 +336,10 @@ if($hadoopHome -eq $null -or $hadoopHome -eq ''){
     Write-Host "Downloading official Hadoop 2.6* solution from $url to $output"
     Download-File $url $output
     Untar-File $output $targetDir
+    #>
     
-    $hadoopHome = [IO.Path]::Combine($targetDir, "hadoop-2.6.5")
+    $hadoopHome = [IO.Path]::Combine($hadoopInstallFolder, "hadoop-2.6.5")
+    New-Item -ItemType Directory -Force -Path $hadoopHome | Out-Null
     [Environment]::SetEnvironmentVariable($hadoopHomeVariableName, $hadoopHome, 'machine')
     Write-Host "Set ($hadoopHomeVariableName) to ($hadoopHome)"
 
@@ -392,3 +360,68 @@ if($hadoopHome -eq $null -or $hadoopHome -eq ''){
     Write-Host "Please ensure that they are Hadoop version $hadoopVersion and that this guide has been followed for Windows."
     Write-Host "https://wiki.apache.org/hadoop/WindowsProblems .`n"
 }
+
+Write-Host "`n`n------------------------ SPARK PREREQUISITES ------------------------`n`n"
+Write-Host "Checking for Spark installation..."
+if($sparkHome -eq $null -or $sparkHome -eq ''){
+    Write-Host "$sparkHomeEnvironmentVariableName environment not detected on this system.`n"
+    Write-Host "Checking for tools...`n"
+    DownloadInternalTools
+
+    # Create high-level Spark folder
+    if(!(Test-Path $sparkInstallFolder)){
+        Write-Host "$sparkInstallFolder does not exist. Creating..."
+        New-Item -ItemType Directory -Force -Path $sparkInstallFolder | Out-Null
+    } else{
+        Write-Host "$sparkInstallFolder already exists."
+    }
+
+    # Download the Spark distribution from Apache    
+    $url = "http://archive.apache.org/dist/spark/spark-1.6.2/spark-1.6.2-bin-hadoop2.6.tgz"
+    $output = [IO.Path]::Combine($sparkInstallFolder, "spark-$sparkVersion-bin-hadoop$hadoopVersion.tgz")
+    $targetDir = $sparkInstallFolder
+    Write-Host "Downloading official Spark $sparkVersion solution from $url to $output"
+    Download-File $url $output
+    Untar-File $output $targetDir
+    
+    $sparkHome = [IO.Path]::Combine($sparkInstallFolder, "spark-$sparkVersion-bin-hadoop$hadoopVersion")
+    [Environment]::SetEnvironmentVariable($sparkHomeVariableName, $sparkHome, 'machine')
+    Write-Host "Set ($sparkHomeVariableName) to ($sparkHome)"
+
+}else{
+    Write-Host "Found Spark binaries at $sparkHome ."
+}
+
+Write-Host "`n`n------------------------ MOBIUS PREREQUISITES ------------------------`n`n"
+Write-Host "Checking for Mobius (Spark CLR) installation..."
+if($mobiusHome -eq $null -or $mobiusHome -eq ''){
+    Write-Host "$mobiusHomeEnvironmentVariableName environment not detected on this system.`n"
+    Write-Host "Installing..."
+
+    # Create high-level Mobius folder
+    if(!(Test-Path $mobiusInstallFolder)){
+        Write-Host "$mobiusInstallFolder does not exist. Creating..."
+        New-Item -ItemType Directory -Force -Path $mobiusInstallFolder | Out-Null
+    } else{
+        Write-Host "$mobiusInstallFolder already exists."
+    }
+
+    # Download Mobius 1.6.2 release from Github
+    $url = "https://github.com/Microsoft/Mobius/releases/download/v1.6.200/spark-clr_2.10-1.6.200.zip"
+    $output = [IO.Path]::Combine($mobiusInstallFolder, "spark-clr_2.10-1.6.200.zip")
+    Write-Host "Downloading official Mobius $sparkVersion distribution from Github..."
+    Download-File $url $output
+    $targetDir = [IO.Path]::Combine($mobiusInstallFolder, "spark-clr-$sparkVersion")
+    Expand-Archive $output -DestinationPath $targetDir -Force
+
+    $mobiusHome = [IO.Path]::Combine($targetDir, "runtime") # set the runtime folder as the home for Mobius
+    [Environment]::SetEnvironmentVariable($mobiusHomeVariableName, $mobiuskHome, 'machine')
+    Write-Host "Set ($mobiusHomeVariableName) to ($mobiusHome)"
+
+} else{
+    Write-Host "Found Mobius binaries at $mobiusHome.`n"
+}
+
+Write-Host "Installation complete.`n"
+Write-Host "Warning: RELOAD this shell or launch a new one so the new environment variables get picked up.`n"
+Write-Host "You should now be able to execute any Spark command by executing the files in $sparkHome\bin or $mobiusHome\bin.`n"
