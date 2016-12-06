@@ -8,7 +8,7 @@ Param(
     [string]$mobiusInstallFolder = "C:\Mobius"
 )
 
-$hadoopVersion = "2.6.0"
+$hadoopVersion = "2.6"
 $sparkVersion = "1.6.2"
 $versionRegex = [regex]"\b(?:(\d+)\.)?(?:(\d+)\.)?(\*|\d+)\b" # Regex for version numbers
 
@@ -240,7 +240,7 @@ function Download-File($url, $output)
             $howlong = "$seconds seconds"
         }
 
-        Write-Output "[Download-File] Download completed. Time taken: $howlong"
+        Write-Output "[downloadtools.Download-File] Download completed. Time taken: $howlong"
     
         if ( !(test-path $output) -or (Get-Item $output).Length -eq 0)
         {
@@ -415,7 +415,7 @@ if($mobiusHome -eq $null -or $mobiusHome -eq ''){
     Expand-Archive $output -DestinationPath $targetDir -Force
 
     $mobiusHome = [IO.Path]::Combine($targetDir, "runtime") # set the runtime folder as the home for Mobius
-    [Environment]::SetEnvironmentVariable($mobiusHomeVariableName, $mobiusHome, 'machine')
+    [Environment]::SetEnvironmentVariable($mobiusHomeVariableName, $mobiuskHome, 'machine')
     Write-Host "Set ($mobiusHomeVariableName) to ($mobiusHome)"
 
 } else{
