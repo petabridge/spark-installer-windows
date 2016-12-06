@@ -127,7 +127,7 @@ function DownloadInternalTools(){
         $url = "http://download-codeplex.sec.s-msft.com/Download/Release?ProjectName=tartool&DownloadId=79064&FileTime=128946542158770000&Build=21031"
         $output="$toolsDir\TarTool.zip"
         Download-File $url $output
-        Unzip-File $output $toolsDir
+        Expand-Archive $output -DestinationPath $toolsDir -Force
     }
     else
     {
