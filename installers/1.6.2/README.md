@@ -8,3 +8,9 @@ This will install the following into these directories by default:
 * Spark to `C:\Spark\spark-1.6.2-bin-hadoop2.6`
 * Hadoop Windows support binaries to `C:\Hadoop\hadoop-2.6.5\`
 * Mobius to `C:\Mobius\C:\Mobius\spark-clr-1.6.2`
+
+To connect to a local Spark cluster via Mobius, you can execute the following command:
+
+```
+C:\Mobius\C:\Mobius\spark-clr-1.6.2\spark-shell.cmd
+```
