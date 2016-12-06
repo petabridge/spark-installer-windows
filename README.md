@@ -16,3 +16,6 @@ Good luck finding all of the right versions, configuring them to work correctly 
 This project exists to provide an out-of-the-box experience for multiple versions of Spark, Mobius, Hadoop, et al that just work on Windows.
 
 ## Third Party Acknowledgements
+This project wouldn't be possible without Microsoft and the great team who works on [Mobius for Spark](https://github.com/Microsoft/Mobius). Much of our installation scripts are based upon the work they did for Mobius' build chain.
+
+[Chocolatey](https://chocolatey.org/) has also been a major help and we will likely be converting these scripts into Chocolatey commands in the near future.
