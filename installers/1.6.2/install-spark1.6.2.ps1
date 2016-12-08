@@ -340,6 +340,10 @@ if($hadoopHome -eq $null -or $hadoopHome -eq ''){
     
     $hadoopHome = [IO.Path]::Combine($hadoopInstallFolder, "hadoop-2.6.5")
     New-Item -ItemType Directory -Force -Path $hadoopHome | Out-Null
+
+    $hadoopBinFolder = [IO.Path]::Combine($hadoopHome, "bin")
+    New-Item -ItemType Directory -Force -Path $hadoopBinFolder | Out-Null
+
     [Environment]::SetEnvironmentVariable($hadoopHomeVariableName, $hadoopHome, 'machine')
     Write-Host "Set ($hadoopHomeVariableName) to ($hadoopHome)"
 
