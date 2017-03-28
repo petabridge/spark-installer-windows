@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>apache-spark</id>
+    <version>1.6.2</version>
+    <packageSourceUrl>https://github.com/petabridge/spark-installer-windows</packageSourceUrl>
+    <owners>Petabridge, LLC</owners>
+    <title>spark-installer-windows (Install)</title>
+    <authors>Apache</authors>
+    <projectUrl>http://spark.apache.org/</projectUrl>
+    <iconUrl>http://cdn.rawgit.com/petabridge/spark-installer-windows/master/icons/spark-logo-trademark.png</iconUrl>
+    <licenseUrl>http://www.apache.org/licenses/LICENSE-2.0.html</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/apache/spark</projectSourceUrl>
+    <docsUrl>http://spark.apache.org/docs/1.6.2/</docsUrl> <!-- verison 1.6.2 docs -->
+    <mailingListUrl>http://spark.apache.org/community.html</mailingListUrl>
+    <bugTrackerUrl>https://issues.apache.org/jira/browse/SPARK</bugTrackerUrl>
+    <tags>apache spark hadoop mobius</tags>
+    <summary>Apache Spark™ is a fast and general engine for large-scale data processing.</summary>
+    <description>This project exists to provide an out-of-the-box installation experience for multiple versions of Apache Spark and Mobius (C#-Spark driver) et al that just work on Windows.</description>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+  <dependencies>
+        <dependency id="jdk8" />
+        <dependency id="tartool" />
+    </dependencies>
+</package>
