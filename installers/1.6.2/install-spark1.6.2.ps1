@@ -120,14 +120,19 @@ function DownloadInternalTools(){
     }
 
      # TarTool
-    $tarToolExe = "$toolsDir\TarTool.exe"
-    if (!(Test-Path $tarToolExe))
+    $tarToolExe = FindCommandOnPath("tartool")
+    if ($tarToolExe -eq $null -or !(Test-Path $tarToolExe))
     {
         Write-Host "Downloading TarTool.exe for untarring Spark / Hadoop binaries"
-        $url = "http://download-codeplex.sec.s-msft.com/Download/Release?ProjectName=tartool&DownloadId=79064&FileTime=128946542158770000&Build=21031"
-        $output="$toolsDir\TarTool.zip"
-        Download-File $url $output
-        Expand-Archive $output -DestinationPath $toolsDir -Force
+        GetOrInstallChoco
+
+        Write-Host "Executing choco install tartool -y `n"
+        choco install tartool -y | Out-Host
+        ReloadPath
+        $rValue =  FindCommandOnPath("tartool")
+        Write-Host "Installation finished. Installed TarTool to ($rValue)"
+        $tarToolExe = $rValue
+        return $rValue
     }
     else
     {
@@ -156,7 +161,8 @@ function Untar-File($tarFile, $targetDir)
     $start_time = Get-Date
 
     Write-Output "[Untar-File] Extracting $tarFile to $targetDir ..."
-    Invoke-Expression "& `"$tarToolExe`" $tarFile $targetDir"
+    tartool $tarFile $targetDir
+    #Invoke-Expression "& `"$tarToolExe`" $tarFile $targetDir"
     
     $duration = $(Get-Date).Subtract($start_time)
     if ($duration.Seconds -lt 2)
@@ -278,7 +284,7 @@ function InstallJdk
     return GetJdkHomeDirectory($rValue)
 }
 
-if($javaHome -eq $null -or $javaHome -eq ''){
+if($javaHome -eq $null -or $javaHome -eq '' -or !(Test-Path $javaHome)){
     Write-Host "$javaHomeVariableName environment not detected on this system."
     Write-Host "Scanning file system for JDK8 installation."
 
@@ -315,7 +321,7 @@ else{
 
 Write-Host "`n`n------------------------ HADOOP PREREQUISITES ------------------------`n`n"
 Write-Host "Checking for Hadoop installation..."
-if($hadoopHome -eq $null -or $hadoopHome -eq ''){
+if($hadoopHome -eq $null -or $hadoopHome -eq '' -or !(Test-Path $hadoopHome)){
     Write-Host "$hadoopHomeVariableName environment not detected on this system.`n"
     Write-Host "Checking for tools...`n"
     DownloadInternalTools
@@ -367,7 +373,7 @@ if($hadoopHome -eq $null -or $hadoopHome -eq ''){
 
 Write-Host "`n`n------------------------ SPARK PREREQUISITES ------------------------`n`n"
 Write-Host "Checking for Spark installation..."
-if($sparkHome -eq $null -or $sparkHome -eq ''){
+if($sparkHome -eq $null -or $sparkHome -eq '' -or !(Test-Path $sparkHome)){
     Write-Host "$sparkHomeEnvironmentVariableName environment not detected on this system.`n"
     Write-Host "Checking for tools...`n"
     DownloadInternalTools
@@ -398,7 +404,7 @@ if($sparkHome -eq $null -or $sparkHome -eq ''){
 
 Write-Host "`n`n------------------------ MOBIUS PREREQUISITES ------------------------`n`n"
 Write-Host "Checking for Mobius (Spark CLR) installation..."
-if($mobiusHome -eq $null -or $mobiusHome -eq ''){
+if($mobiusHome -eq $null -or $mobiusHome -eq '' -or !(Test-Path $mobiusHome)){
     Write-Host "$mobiusHomeEnvironmentVariableName environment not detected on this system.`n"
     Write-Host "Installing..."
 
