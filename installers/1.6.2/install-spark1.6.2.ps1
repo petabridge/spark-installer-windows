@@ -288,8 +288,10 @@ if($javaHome -eq $null -or $javaHome -eq '' -or !(Test-Path $javaHome)){
     Write-Host "$javaHomeVariableName environment not detected on this system."
     Write-Host "Scanning file system for JDK8 installation."
 
-    $javaHome = GetJdkHomeDirectory(FindCommandOnPath("javac"))
-
+	$javaC = FindCommandOnPath("javac")
+	if($javaC -ne $null -or $javaC -ne ''){
+		$javaHome = GetJdkHomeDirectory(FindCommandOnPath("javac"))
+	}
     
     if($javaHome -eq $null -or $javaHome -eq '' -or $javaHome -contains "Could not find files.`n"){
         Write-Host "Unable to find JDK installation on this system.`n"

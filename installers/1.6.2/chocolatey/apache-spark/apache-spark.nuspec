@@ -18,12 +18,12 @@
     <tags>apache spark hadoop mobius</tags>
     <summary>Apache Spark™ is a fast and general engine for large-scale data processing.</summary>
     <description>This project exists to provide an out-of-the-box installation experience for multiple versions of Apache Spark and Mobius (C#-Spark driver) et al that just work on Windows.</description>
+    <dependencies>
+      <dependency id="jdk8" />
+      <dependency id="tartool" />
+    </dependencies>
   </metadata>
   <files>
     <file src="tools\**" target="tools" />
   </files>
-  <dependencies>
-        <dependency id="jdk8" />
-        <dependency id="tartool" />
-    </dependencies>
 </package>
