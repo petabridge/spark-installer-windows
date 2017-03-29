@@ -15,6 +15,18 @@ Good luck finding all of the right versions, configuring them to work correctly 
 
 This project exists to provide an out-of-the-box experience for multiple versions of Spark, Mobius, Hadoop, et al that just work on Windows.
 
+## Usage
+
+This script is available via the [Chocolatey](https://chocolatey.org/) package manager.  For instructions on how to install Chocolatey, visit this [link](https://chocolatey.org/install).
+
+The Chocolatey repo for this project can be found [here](https://chocolatey.org/packages/apache-spark/).  To install, run the following command in a terminal session:
+
+```
+> choco install apache-spark -version 1.6.2
+```
+
+This command will automatically download and execute the installation script, installing all of the projects mentioned above.
+
 ## Third Party Acknowledgements
 This project wouldn't be possible without Microsoft and the great team who works on [Mobius for Spark](https://github.com/Microsoft/Mobius). Much of our installation scripts are based upon the work they did for Mobius' build chain.
 
