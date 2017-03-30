@@ -423,8 +423,7 @@ if($mobiusHome -eq $null -or $mobiusHome -eq '' -or !(Test-Path $mobiusHome)){
     $output = [IO.Path]::Combine($mobiusInstallFolder, "spark-clr_2.10-1.6.200.zip")
     Write-Host "Downloading official Mobius $sparkVersion distribution from Github..."
     Download-File $url $output
-    $targetDir = [IO.Path]::Combine($mobiusInstallFolder, "spark-clr-$sparkVersion")
-    Expand-Archive $output -DestinationPath $targetDir -Force
+	# To be unzipped in chocolateyinstall.ps1 for now
 
     $mobiusHome = [IO.Path]::Combine($targetDir, "runtime") # set the runtime folder as the home for Mobius
     [Environment]::SetEnvironmentVariable($mobiusHomeVariableName, $mobiuskHome, 'machine')
